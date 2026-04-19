@@ -1,77 +1,136 @@
-# azoth
+# ⚗️ Azoth
 
-Azoth é um sistema completo para transcrição e análise de áudios e vídeos. Com ele, você pode:
-- Gravar e transcrever áudio do microfone
-- Gravar e transcrever o áudio do sistema (reuniões, vídeos, etc.)
-- Baixar e transcrever o áudio de vídeos do YouTube
-- Consultar e gerenciar um histórico de transcrições
-- Analisar qualquer transcrição com IA conversacional (chat com contexto)
-- Deletar transcrições específicas
-Tudo isso em uma interface interativa e amigável no terminal.
+> *Na alquimia, Azoth é a essência primordial — o agente transformador universal. Aqui, ele transforma fala em conhecimento.*
+
+Azoth é uma aplicação desktop com interface gráfica para **transcrição local de áudio e análise com IA**. Ele roda o modelo Whisper diretamente na sua GPU (via PyTorch + CUDA), sem depender de APIs externas para transcrever. A análise inteligente é feita por um agente conversacional com contexto completo da transcrição.
 
 ---
 
-![Demonstração do sistema](media/azoth.gif)
+## ✨ Funcionalidades
+
+| Função | Descrição |
+|---|---|
+| 🎙️ **Gravar do microfone** | Captura e transcreve áudio direto do microfone |
+| 🖥️ **Gravar o áudio do sistema** | Captura reuniões, vídeos e qualquer som que toca no PC |
+| 📁 **Importar arquivo** | Transcreve arquivos `.mp3`, `.mp4`, `.wav` e outros formatos |
+| ▶️ **Download do YouTube** | Cola a URL, Azoth baixa e transcreve automaticamente |
+| 🤖 **Análise com IA** | Chat conversacional com contexto da transcrição via agente Agno + Groq |
+| 🗂️ **Histórico completo** | Todas as transcrições salvas localmente com busca e gerenciamento |
 
 ---
 
-## Instalação
+## 🖼️ Interface
 
-### 1. Clone o projeto e entre na pasta
+A GUI foi construída com **CustomTkinter** — leve, moderna e nativa. Todas as operações pesadas (transcrição, download, análise) rodam em **threads separadas** para não travar a interface.
+
+---
+
+## ⚙️ Requisitos
+
+- Python **3.9+**
+- **NVIDIA GPU** com CUDA 12.8+ (recomendado; CPU também funciona, mas é lento)
+- [uv](https://github.com/astral-sh/uv) — gerenciador de pacotes e ambientes
+- [ffmpeg](https://ffmpeg.org/) no PATH do sistema
+- Chave de API do [Groq](https://console.groq.com/) (para o agente de análise)
+
+> **Testado em:** Windows 11, GTX 1650, CUDA 12.8, Python 3.11
+
+---
+
+## 🚀 Instalação
+
+### 1. Clone o repositório
+
 ```bash
-git clone https://github.com/rtadewald/azoth.git
-cd azoth
+git clone https://github.com/h-eXu/Azoth.git
+cd Azoth
 ```
 
-### 2. Instale as dependências com [uv](https://github.com/astral-sh/uv)
+### 2. Crie o ambiente e instale as dependências
+
 ```bash
-uv venv
-source .venv/bin/activate  # ou .venv\Scripts\activate no Windows
-uv pip install -e .
+uv sync
 ```
 
-### 3. Instale o ffmpeg
-- **macOS:**
-  ```bash
-  brew install ffmpeg
-  ```
-- **Windows:**
-  Baixe em https://ffmpeg.org/download.html e adicione o binário ao PATH.
+> O `uv sync` lê o `pyproject.toml` e instala tudo automaticamente, incluindo o PyTorch com suporte CUDA.
 
-### 4. Instale o BlackHole (para capturar áudio do sistema)
-- **macOS:**
-  1. Baixe em https://existential.audio/blackhole/
-  2. Instale e crie um Multi-Output Device no Utilitário de Áudio MIDI, incluindo BlackHole e seus alto-falantes/fones.
-  3. Defina o Multi-Output Device como saída padrão do sistema.
-- **Windows:**
-  Use [VB-Cable](https://vb-audio.com/Cable/) ou [VoiceMeeter](https://vb-audio.com/Voicemeeter/) para criar um dispositivo de áudio virtual e roteie o áudio do sistema para ele.
+### 3. Configure as variáveis de ambiente
 
-### 5. Crie o arquivo `.env` com suas chaves de API
-Crie um arquivo chamado `.env` na raiz do projeto com o seguinte conteúdo:
+Crie um arquivo `.env` na raiz do projeto:
+
+```env
+GROQ_API_KEY=sua_chave_groq_aqui
 ```
-GROQ_API_KEY=coloque_sua_chave_groq_aqui
-OPENAI_API_KEY=coloque_sua_chave_openai_aqui
-```
-- `GROQ_API_KEY`: Necessária para transcrição com Whisper (Groq)
-- `OPENAI_API_KEY`: Necessária para análise com IA (agente conversacional)
 
-### 6. Outras dependências
-- Python 3.8+
+> A chave Groq é usada pelo **agente de análise** (LLM). A **transcrição** roda 100% local com Whisper.
+
+### 4. Instale o ffmpeg
+
+**Windows:**
+Baixe em [ffmpeg.org/download.html](https://ffmpeg.org/download.html) e adicione ao PATH do sistema.
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+### 5. (Opcional) Configurar captura de áudio do sistema
+
+Para gravar reuniões e vídeos que tocam no PC:
+
+**Windows:** Instale [VB-Cable](https://vb-audio.com/Cable/) ou [VoiceMeeter](https://vb-audio.com/Voicemeeter/) e configure como dispositivo de gravação padrão.
+
+**macOS:** Instale [BlackHole](https://existential.audio/blackhole/) e configure um Multi-Output Device no Utilitário de Áudio MIDI.
 
 ---
 
-## Como rodar
+## ▶️ Como rodar
 
-Ative o ambiente virtual e execute:
 ```bash
-uv run azoth/main.py
+uv run python -m azoth.main
 ```
 
-Siga o menu interativo para gravar, transcrever, analisar e gerenciar suas transcrições.
+A janela da aplicação abre imediatamente. Escolha a fonte de áudio, inicie a transcrição e, ao terminar, acesse a análise com IA direto na interface.
 
 ---
 
-## Observações
-- Para transcrever áudio do sistema (reuniões, vídeos, etc.), é necessário configurar corretamente o dispositivo virtual (BlackHole no macOS, VB-Cable/VoiceMeeter no Windows).
-- O sistema salva o histórico em `transcricoes.json` na raiz do projeto.
-- Para usar a análise com IA, configure corretamente o agente no código e sua chave de API.
+## 🗂️ Estrutura do projeto
+
+```
+Azoth/
+├── azoth/
+│   ├── core/          # Lógica de transcrição, agente IA, banco de dados
+│   ├── gui/           # Interface CustomTkinter
+│   └── main.py        # Ponto de entrada
+├── pyproject.toml     # Dependências e configuração do projeto
+├── .env               # Chaves de API (não commitado)
+└── transcricoes.json  # Histórico local (não commitado)
+```
+
+---
+
+## 🧠 Stack técnica
+
+| Componente | Tecnologia |
+|---|---|
+| Transcrição | [OpenAI Whisper](https://github.com/openai/whisper) (local, GPU) |
+| Aceleração GPU | PyTorch + CUDA 12.8 |
+| Agente de análise | [Agno](https://github.com/agno-agi/agno) + Groq (LLaMA) |
+| Interface gráfica | [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) |
+| Diarização | [pyannote-audio](https://github.com/pyannote/pyannote-audio) |
+| Download YouTube | [pytubefix](https://github.com/JuanBindez/pytubefix) |
+| Gerenciador de pacotes | [uv](https://github.com/astral-sh/uv) |
+| Banco de dados local | [TinyDB](https://github.com/msiemens/tinydb) |
+
+---
+
+## 📝 Observações
+
+- O modelo Whisper roda **inteiramente local** — nenhum áudio é enviado para servidores externos
+- O histórico de transcrições fica em `transcricoes.json` na raiz — mantenha no `.gitignore`
+- Para melhor desempenho, use GPU NVIDIA com pelo menos 4GB de VRAM
+- O agente de análise mantém contexto da conversa durante toda a sessão
+
+---
+
+*Construído com curiosidade e intenção.*

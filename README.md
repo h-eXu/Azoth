@@ -1,6 +1,6 @@
-# transcripter
+# azoth
 
-Transcripter é um sistema de terminal completo para transcrição e análise de áudios e vídeos. Com ele, você pode:
+Azoth é um sistema completo para transcrição e análise de áudios e vídeos. Com ele, você pode:
 - Gravar e transcrever áudio do microfone
 - Gravar e transcrever o áudio do sistema (reuniões, vídeos, etc.)
 - Baixar e transcrever o áudio de vídeos do YouTube
@@ -11,7 +11,7 @@ Tudo isso em uma interface interativa e amigável no terminal.
 
 ---
 
-![Demonstração do sistema](media/transcripter.gif)
+![Demonstração do sistema](media/azoth.gif)
 
 ---
 
@@ -19,8 +19,8 @@ Tudo isso em uma interface interativa e amigável no terminal.
 
 ### 1. Clone o projeto e entre na pasta
 ```bash
-git clone https://github.com/rtadewald/transcripter.git
-cd transcripter
+git clone https://github.com/rtadewald/azoth.git
+cd azoth
 ```
 
 ### 2. Instale as dependências com [uv](https://github.com/astral-sh/uv)
@@ -64,7 +64,7 @@ OPENAI_API_KEY=coloque_sua_chave_openai_aqui
 
 Ative o ambiente virtual e execute:
 ```bash
-uv run transcripter/main.py
+uv run azoth/main.py
 ```
 
 Siga o menu interativo para gravar, transcrever, analisar e gerenciar suas transcrições.

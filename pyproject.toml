@@ -1,5 +1,5 @@
 [project]
-name = "transcripter"
+name = "azoth"
 version = "0.1.0"
 description = "Transcrição e análise de áudios e vídeos via terminal"
 authors = [{name = "Rodrigo Soares Tadewald", email = "rodrigo.tadewald@gmail.com"}]
@@ -14,6 +14,7 @@ dependencies = [
     "ipykernel>=6.30.0",
     "keyboard>=0.13.5",
     "openai>=1.97.1",
+    "openai-whisper>=20250625",
     "pyannote-audio>=3.3.2",
     "pynput>=1.8.1",
     "python-dotenv>=1.1.1",
@@ -23,7 +24,20 @@ dependencies = [
     "sounddevice>=0.5.2",
     "soundfile>=0.13.1",
     "tinydb>=4.8.2",
+    "customtkinter>=5.2.0",
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
+    "torchvision>=0.22.0",
 ]
 
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+
 [project.scripts]
-transcripter = "transcripter.main:main"
+azoth = "azoth.main:main"

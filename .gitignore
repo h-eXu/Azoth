@@ -9,3 +9,11 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# Arquivos de mídia e banco local
+transcricoes.json
+*.wav
+*.mp3
+*.mp4
+*.m4a
+*.ogg

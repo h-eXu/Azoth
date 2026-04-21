@@ -34,11 +34,14 @@ class AudioCapture:
         """Return (index, name) list filtered by mode: 'mic' or 'system'."""
         all_devs = sd.query_devices()
         if mode == "mic":
-            return [
-                (i, d["name"])
-                for i, d in enumerate(all_devs)
-                if d["max_input_channels"] > 0 and d["max_output_channels"] == 0
-            ]
+            system_keywords = ("mix", "stereo", "loopback", "what u hear", "wave out",
+                       "alto-falante", "speaker", "output", "saída")
+        return [
+            (i, d["name"])
+            for i, d in enumerate(all_devs)
+            if d["max_input_channels"] > 0
+            and not any(k in d["name"].lower() for k in system_keywords)
+        ]
         else:  # system
             keywords = ("mix", "stereo", "loopback", "what u hear", "wave out")
             return [

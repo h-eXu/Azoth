@@ -186,9 +186,17 @@ class TranscriptionFrame(ctk.CTkFrame):
     def _refresh_devices(self):
         mode = "mic" if self._current_source == "mic" else "system"
         devs = self.app.audio.list_input_devices(mode=mode)
-        names = ["Padrão do sistema"] + [f"{i}: {n}" for i, n in devs]
-        self.device_dropdown.configure(values=names)
-        self.device_var.set("Padrão do sistema")
+        
+        if len(devs) == 1:
+            self.device_var.set(f"{devs[0][0]}: {devs[0][1]}")
+            self.device_dropdown.grid_remove()
+        else:
+            names = ["Padrão do sistema"] + [f"{i}: {n}" for i, n in devs]
+            self.device_dropdown.configure(values=names)
+            self.device_var.set("Padrão do sistema")
+            self.device_dropdown.grid()
+
+
 
     def _get_selected_device(self):
         val = self.device_var.get()

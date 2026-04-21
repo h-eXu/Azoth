@@ -4,6 +4,7 @@ Supports: microphone, system audio (VB-Cable), local files, YouTube.
 """
 
 import os
+import re
 import tempfile
 import uuid
 import subprocess
@@ -15,6 +16,15 @@ import numpy as np
 from pytubefix import YouTube
 
 SAMPLE_RATE = 48000
+
+
+def _clean_device_name(name: str) -> str:
+    """Return a human-friendly version of a raw driver device name."""
+    if name.startswith("@"):
+        return "Headset / Dispositivo externo"
+    # Remove duplicated suffix: "Foo (bar) (Foo (bar))" → "Foo (bar)"
+    name = re.sub(r'\s*\(([^)]+)\)\s*\(\1\)\s*$', r' (\1)', name)
+    return name.strip()
 
 
 class AudioCapture:
@@ -34,14 +44,28 @@ class AudioCapture:
         """Return (index, name) list filtered by mode: 'mic' or 'system'."""
         all_devs = sd.query_devices()
         if mode == "mic":
-            system_keywords = ("mix", "stereo", "loopback", "what u hear", "wave out",
-                       "alto-falante", "speaker", "output", "saída")
-        return [
-            (i, d["name"])
-            for i, d in enumerate(all_devs)
-            if d["max_input_channels"] > 0
-            and not any(k in d["name"].lower() for k in system_keywords)
-        ]
+            skip_keywords = (
+                "mix", "stereo", "loopback", "what u hear", "wave out",
+                "alto-falante", "speaker", "output", "saída",
+                "mapeador", "mapper", "driver de captura primário", "primary capture",
+                "grupo de microfones", "microphone array",
+            )
+            seen_names = set()
+            result = []
+            for i, d in enumerate(all_devs):
+                raw_name = d["name"].strip()
+                if not raw_name:
+                    continue
+                if d["max_input_channels"] <= 0:
+                    continue
+                if any(k in raw_name.lower() for k in skip_keywords):
+                    continue
+                clean = _clean_device_name(raw_name)
+                if clean in seen_names:
+                    continue
+                seen_names.add(clean)
+                result.append((i, clean))
+            return result
         else:  # system
             keywords = ("mix", "stereo", "loopback", "what u hear", "wave out")
             return [

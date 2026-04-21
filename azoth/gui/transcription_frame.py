@@ -48,7 +48,7 @@ class TranscriptionFrame(ctk.CTkFrame):
 
         sources = [
             ("🎤 Microfone", "mic"),
-            ("💻 Sistema", "system"),
+            ("💻 Chamada/Reunião", "system"),
             ("📁 Arquivo", "file"),
             ("▶ YouTube", "youtube"),
         ]
@@ -182,8 +182,10 @@ class TranscriptionFrame(ctk.CTkFrame):
             self.timer_label.grid_remove()
             self.url_frame.grid(row=1, column=0, columnspan=3, padx=16, pady=(0, 12))
 
+
     def _refresh_devices(self):
-        devs = self.app.audio.list_input_devices()
+        mode = "mic" if self._current_source == "mic" else "system"
+        devs = self.app.audio.list_input_devices(mode=mode)
         names = ["Padrão do sistema"] + [f"{i}: {n}" for i, n in devs]
         self.device_dropdown.configure(values=names)
         self.device_var.set("Padrão do sistema")

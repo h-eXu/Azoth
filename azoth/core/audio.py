@@ -30,14 +30,25 @@ class AudioCapture:
     # ── Device listing ────────────────────────────────────────────────
 
     @staticmethod
-    def list_input_devices():
-        """Return list of (index, name) for input-capable devices."""
-        devices = sd.query_devices()
-        return [
-            (i, d["name"])
-            for i, d in enumerate(devices)
-            if d["max_input_channels"] > 0
-        ]
+    def list_input_devices(mode="mic"):
+        """Return (index, name) list filtered by mode: 'mic' or 'system'."""
+        all_devs = sd.query_devices()
+        if mode == "mic":
+            return [
+                (i, d["name"])
+                for i, d in enumerate(all_devs)
+                if d["max_input_channels"] > 0 and d["max_output_channels"] == 0
+            ]
+        else:  # system
+            keywords = ("mix", "stereo", "loopback", "what u hear", "wave out")
+            return [
+                (i, d["name"])
+                for i, d in enumerate(all_devs)
+                if d["max_input_channels"] > 0 and (
+                    d["max_output_channels"] > 0
+                    or any(k in d["name"].lower() for k in keywords)
+                )
+            ]
 
     # ── Recording ─────────────────────────────────────────────────────
 

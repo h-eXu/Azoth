@@ -14,15 +14,21 @@ class ChatWindow(ctk.CTkToplevel):
         self.app = app
         self.transcription = transcription
         self.agent = None
+        self._alive = True  # flag de ciclo de vida
 
         self.title(f"✦ Azoth — Análise: {title}")
         self.geometry("850x680")
         self.minsize(700, 500)
         self.configure(fg_color=T.BG_DARK)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)  # captura o fechar
 
         self._build()
         self.after(100, self.focus_force)
         self.after(200, self._run_auto_analysis)
+
+    def _on_close(self):
+        self._alive = False
+        self.destroy()
 
     def _build(self):
         self.grid_columnconfigure(0, weight=1)
@@ -46,7 +52,6 @@ class ChatWindow(ctk.CTkToplevel):
             text_color=T.TEXT_SECONDARY
         ).pack(side="left", padx=(0, 8))
 
-        # Build label list preserving order, store key lookup
         self._template_labels = [v["label"] for v in TEMPLATES.values()]
         self._label_to_key = {v["label"]: k for k, v in TEMPLATES.items()}
 
@@ -105,20 +110,30 @@ class ChatWindow(ctk.CTkToplevel):
     # ── Helpers ───────────────────────────────────────────────────────
 
     def _append_text(self, text, tag=None):
-        self.chat_display.configure(state="normal")
-        if tag:
-            self.chat_display._textbox.insert("end", text, tag)
-        else:
-            self.chat_display._textbox.insert("end", text)
-        self.chat_display.configure(state="disabled")
-        self.chat_display.see("end")
+        if not self._alive:
+            return
+        try:
+            self.chat_display.configure(state="normal")
+            if tag:
+                self.chat_display._textbox.insert("end", text, tag)
+            else:
+                self.chat_display._textbox.insert("end", text)
+            self.chat_display.configure(state="disabled")
+            self.chat_display.see("end")
+        except Exception:
+            pass
 
     def _set_input_enabled(self, enabled):
-        state = "normal" if enabled else "disabled"
-        self.input_entry.configure(state=state)
-        self.send_btn.configure(state=state)
-        if enabled:
-            self.input_entry.focus()
+        if not self._alive:
+            return
+        try:
+            state = "normal" if enabled else "disabled"
+            self.input_entry.configure(state=state)
+            self.send_btn.configure(state=state)
+            if enabled:
+                self.input_entry.focus()
+        except Exception:
+            pass
 
     def _get_selected_template_key(self):
         label = self.template_var.get()
@@ -147,10 +162,15 @@ class ChatWindow(ctk.CTkToplevel):
             self.after(0, lambda: self._set_input_enabled(True))
 
     def _on_analysis_done(self):
+        if not self._alive:
+            return
         self._append_text("\n\n─── Chat disponível. Digite sua pergunta. ───\n\n", "system")
         self._set_input_enabled(True)
-        self.template_dropdown.configure(state="normal")
-        self.rerun_btn.configure(state="normal")
+        try:
+            self.template_dropdown.configure(state="normal")
+            self.rerun_btn.configure(state="normal")
+        except Exception:
+            pass
 
     # ── Re-analysis ───────────────────────────────────────────────────
 

@@ -7,11 +7,6 @@ from azoth.gui.home_frame import HomeFrame
 from azoth.gui.transcription_frame import TranscriptionFrame
 from azoth.gui.history_frame import HistoryFrame
 
-from azoth.core.audio import AudioCapture
-from azoth.core.transcription import TranscriptionEngine
-from azoth.core.database import TranscriptionDB
-from azoth.core.analysis import AnalysisEngine
-
 
 class AzothApp(ctk.CTk):
     def __init__(self):
@@ -26,11 +21,11 @@ class AzothApp(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
 
-        # ── Core services ────────────────────────────────────────────
-        self.audio = AudioCapture()
-        self.engine = TranscriptionEngine()
-        self.db = TranscriptionDB()
-        self.analysis = AnalysisEngine()
+        # ── Core services (loaded in background) ─────────────────────
+        self.audio = None
+        self.engine = None
+        self.db = None
+        self.analysis = None
 
         # ── Container ────────────────────────────────────────────────
         self.container = ctk.CTkFrame(self, fg_color=T.BG_DARK)
@@ -46,18 +41,37 @@ class AzothApp(ctk.CTk):
 
         self.show_frame("home")
 
-        # ── Load model in background ─────────────────────────────────
-        self.frames["home"].set_status("⏳ Carregando modelo Whisper...")
-        threading.Thread(target=self._load_model, daemon=True).start()
+        # ── Load services in background after window is visible ──────
+        self.frames["home"].set_status("⏳ Inicializando...")
+        self.after(50, self._start_background_init)
 
-    def _load_model(self):
-        def on_status(msg):
+    def _start_background_init(self):
+        """Kick off service loading in a background thread."""
+        threading.Thread(target=self._load_services, daemon=True).start()
+
+    def _load_services(self):
+        """Import heavy modules and initialize services off the main thread."""
+        def status(msg):
             self.after(0, lambda: self.frames["home"].set_status(msg))
 
-        self.engine.load_model(on_status=on_status)
-        self.after(0, lambda: self.frames["home"].set_status(
-            f"✓ Whisper {self.engine.model_name} carregado no {self.engine.device.upper()}"
-        ))
+        # ── Import core modules (the heavy part) ─────────────────────
+        status("⏳ Carregando módulos...")
+        from azoth.core.audio import AudioCapture
+        from azoth.core.transcription import TranscriptionEngine
+        from azoth.core.database import TranscriptionDB
+        from azoth.core.analysis import AnalysisEngine
+
+        # ── Instantiate services ─────────────────────────────────────
+        self.audio = AudioCapture()
+        self.db = TranscriptionDB()
+        self.analysis = AnalysisEngine()
+        self.engine = TranscriptionEngine()
+
+        # Whisper carrega sob demanda (na hora de transcrever) para economizar VRAM
+        status(
+            f"✓ Pronto — Whisper {self.engine.model_name} será carregado sob demanda "
+            f"({self.engine.device.upper()})"
+        )
 
     def show_frame(self, name, **kwargs):
         """Navigate to a frame by name."""
@@ -71,3 +85,4 @@ class AzothApp(ctk.CTk):
             frame.on_show(**kwargs)
 
         self._current_frame = frame
+

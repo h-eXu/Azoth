@@ -62,9 +62,20 @@ class TranscriptionFrame(ctk.CTkFrame):
             btn.grid(row=1, column=i, padx=8, pady=(0, 12))
             self._src_buttons[key] = btn
 
+        # ── Modo rápido toggle (diarização ativa por padrão) ─────────
+        diar_frame = ctk.CTkFrame(self, fg_color="transparent")
+        diar_frame.grid(row=2, column=0, padx=28, pady=(0, 4), sticky="w")
+        self.fast_mode_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            diar_frame, text="⚡ Modo rápido (sem identificar falantes)",
+            variable=self.fast_mode_var,
+            font=T.FONT_BODY, text_color=T.TEXT_SECONDARY,
+            fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER
+        ).pack(side="left")
+
         # ── Controls area (device dropdown + record btn + timer) ─────
         self.ctrl_frame = ctk.CTkFrame(self, **T.CARD_FRAME)
-        self.ctrl_frame.grid(row=2, column=0, padx=20, pady=8, sticky="ew")
+        self.ctrl_frame.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
         self.ctrl_frame.grid_columnconfigure(1, weight=1)
 
         # Device dropdown
@@ -103,7 +114,7 @@ class TranscriptionFrame(ctk.CTkFrame):
 
         # ── Progress area ────────────────────────────────────────────
         prog_frame = ctk.CTkFrame(self, **T.CARD_FRAME)
-        prog_frame.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
+        prog_frame.grid(row=4, column=0, padx=20, pady=8, sticky="ew")
         prog_frame.grid_columnconfigure(0, weight=1)
 
         self.status_label = ctk.CTkLabel(
@@ -119,10 +130,10 @@ class TranscriptionFrame(ctk.CTkFrame):
 
         # ── Result area ──────────────────────────────────────────────
         result_frame = ctk.CTkFrame(self, **T.CARD_FRAME)
-        result_frame.grid(row=4, column=0, padx=20, pady=8, sticky="nsew")
+        result_frame.grid(row=5, column=0, padx=20, pady=8, sticky="nsew")
         result_frame.grid_columnconfigure(0, weight=1)
         result_frame.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(4, weight=1)
+        self.grid_rowconfigure(5, weight=1)
 
         ctk.CTkLabel(
             result_frame, text="Resultado:", font=T.FONT_BODY, text_color=T.TEXT_SECONDARY
@@ -155,7 +166,6 @@ class TranscriptionFrame(ctk.CTkFrame):
 
     def _select_source(self, source):
         self._current_source = source
-        # Highlight active source button
         for key, btn in self._src_buttons.items():
             if key == source:
                 btn.configure(fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, text_color="#fff")
@@ -182,11 +192,10 @@ class TranscriptionFrame(ctk.CTkFrame):
             self.timer_label.grid_remove()
             self.url_frame.grid(row=1, column=0, columnspan=3, padx=16, pady=(0, 12))
 
-
     def _refresh_devices(self):
         mode = "mic" if self._current_source == "mic" else "system"
         devs = self.app.audio.list_input_devices(mode=mode)
-        
+
         if len(devs) == 1:
             self.device_var.set(f"{devs[0][0]}: {devs[0][1]}")
             self.device_dropdown.grid_remove()
@@ -195,8 +204,6 @@ class TranscriptionFrame(ctk.CTkFrame):
             self.device_dropdown.configure(values=names)
             self.device_var.set("Padrão do sistema")
             self.device_dropdown.grid()
-
-
 
     def _get_selected_device(self):
         val = self.device_var.get()
@@ -294,7 +301,19 @@ class TranscriptionFrame(ctk.CTkFrame):
 
     def _transcribe_thread(self, audio_path):
         try:
-            text, elapsed = self.app.engine.transcribe(audio_path)
+            text, segments, elapsed = self.app.engine.transcribe(audio_path)
+            
+            # Libera a VRAM do Whisper ANTES de carregar o modelo de diarização (Pyannote)
+            self.app.engine.unload_model()
+            
+            if not self.fast_mode_var.get():
+                self.after(0, lambda: self.status_label.configure(
+                    text="Identificando falantes...", text_color=T.CYAN
+                ))
+                hf_token = os.getenv("HF_TOKEN", "")
+                from azoth.core.diarizer import diarize, merge
+                diar_segments = diarize(audio_path, hf_token)
+                text = merge(segments, diar_segments)
             self.after(0, self._on_transcription_done, text, elapsed)
         except Exception as e:
             self.after(0, self._on_error, str(e))
@@ -320,6 +339,7 @@ class TranscriptionFrame(ctk.CTkFrame):
         self.save_btn.configure(state="normal")
         self.analyze_btn.configure(state="normal")
         self.action_btn.configure(state="normal")
+        self.app.engine.unload_model()
 
         if self._last_cleanup and self._last_audio and os.path.exists(self._last_audio):
             try:
@@ -342,7 +362,6 @@ class TranscriptionFrame(ctk.CTkFrame):
         self.save_btn.configure(state="disabled")
 
     def _analyze(self):
-        # Save first if not saved yet
         if self.save_btn.cget("state") == "normal":
             self._save()
         from azoth.gui.chat_window import ChatWindow

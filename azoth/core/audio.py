@@ -13,7 +13,6 @@ import threading
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
-from pytubefix import YouTube
 
 SAMPLE_RATE = 48000
 
@@ -141,7 +140,9 @@ class AudioCapture:
     @staticmethod
     def download_youtube(url):
         """Download audio from YouTube video, return (filepath, title)."""
+        from pytubefix import YouTube
+
         yt = YouTube(url)
         filename = f"{uuid.uuid4()}.wav"
         yt.streams.filter(only_audio=True).first().download(filename=filename)
-        return filename, yt.title
+        return filename, yt.title

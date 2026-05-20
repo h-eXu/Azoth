@@ -2,7 +2,7 @@
 
 > *Na alquimia, Azoth é a essência primordial — o agente transformador universal. Aqui, ele transforma fala em conhecimento.*
 
-Azoth é uma aplicação desktop com interface gráfica para **transcrição local de áudio e análise com IA**. Ele roda o modelo Whisper diretamente na sua GPU (via PyTorch + CUDA), sem depender de APIs externas para transcrever. A análise inteligente é feita por um agente conversacional com contexto completo da transcrição.
+Azoth é uma aplicação desktop com interface gráfica para **transcrição de áudio, diarização de falantes (quem falou o quê) e análise inteligente com IA**. Ele foi meticulosamente otimizado para rodar localmente de forma eficiente, mesmo em GPUs de entrada (como a GTX 1650 com 4GB de VRAM), coordenando o uso de memória de vídeo com APIs de IA robustas e gratuitas.
 
 ---
 
@@ -13,124 +13,91 @@ Azoth é uma aplicação desktop com interface gráfica para **transcrição loc
 | 🎙️ **Gravar do microfone** | Captura e transcreve áudio direto do microfone |
 | 🖥️ **Gravar o áudio do sistema** | Captura reuniões, vídeos e qualquer som que toca no PC |
 | 📁 **Importar arquivo** | Transcreve arquivos `.mp3`, `.mp4`, `.wav` e outros formatos |
-| ▶️ **Download do YouTube** | Cola a URL, Azoth baixa e transcreve automaticamente |
-| 🤖 **Análise com IA** | Chat conversacional com contexto da transcrição via agente Agno + Groq |
+| ▶️ **Download do YouTube** | Cola a URL, o Azoth baixa e transcreve automaticamente |
+| 👤 **Diarização de Falantes** | Identifica quem falou cada trecho da transcrição (via `pyannote-audio`) |
+| 🤖 **Análise com IA + Chat** | Chat conversacional estruturado via agente Agno + Groq com inteligência de chunking |
 | 🗂️ **Histórico completo** | Todas as transcrições salvas localmente com busca e gerenciamento |
 
 ---
 
-## 🖼️ Interface
+## 🚀 Otimizações Arquiteturais Recentes
 
-A GUI foi construída com **CustomTkinter** — leve, moderna e nativa. Todas as operações pesadas (transcrição, download, análise) rodam em **threads separadas** para não travar a interface.
+Para viabilizar o uso do app de forma confortável em hardwares com 4GB de VRAM e em limites de API gratuitos (Groq Free Tier), implementamos as seguintes melhorias:
+
+### 1. Gestão Extrema de VRAM (Whisper + Pyannote)
+* **Lazy Loading / Unloading Sob Demanda**: O modelo Whisper não fica mais preso na GPU em estado ocioso. Ele é carregado na VRAM exclusivamente durante a transcrição e é **imediatamente movido para a CPU e deletado** antes de o modelo de Diarização (Pyannote) assumir. Isso evita sobreposição de memória e estouros de 4GB de VRAM.
+* **Modelo Otimizado**: Alterado para o modelo `small` por padrão para português, equilibrando alta acurácia e baixo consumo (~1.0 GB VRAM).
+* **Compatibilidade GTX 1650 (Estabilidade fp32)**: Placas de entrada (como a GTX 1650) carecem de Tensor Cores dedicados, gerando erros de `nan` logits ao usar `fp16=True`. Forçamos o uso estável de `fp16=False` (precisão simples fp32), mantendo a integridade e precisão absoluta da transcrição.
+
+### 2. Chunking Inteligente & Resiliência a Rate Limit (Groq)
+* **Segmentação por Parágrafo**: Áudios longos (como reuniões de 1h45 que chegam a 35K tokens) são fatiados em blocos de até 28.000 caracteres (~7.000 tokens) respeitando pontuações e quebras naturais de linha.
+* **Consolidação/Síntese por Passes**: Os blocos são analisados individualmente, e uma chamada final unifica as análises parciais em um documento estruturado sob medida, respeitando o limite de **12K TPM** (Tokens Per Minute) do Groq Free.
+* **Retries com Backoff Exponencial**: Caso a API do Groq atinja limites de requisição (HTTP 429), o motor de análise efetua pausas e re-tentativas automáticas de forma transparente para o usuário.
+* **Contexto de Chat Compacto**: O histórico do chat pós-análise recebe uma síntese densa em suas diretivas de sistema ao invés do texto bruto completo, mantendo a janela de contexto limpa e otimizada.
+
+### 3. Patches de Compatibilidade Dinâmicos (`compat.py`)
+* Sistema inovador de auto-injeção de patches executado ao carregar os módulos, contornando quebras internas de bibliotecas sob PyTorch 2.6+/2.7+ e torchaudio, como o redirecionamento nativo do `torchaudio.load()` para decodificação via `soundfile` e desativação forçada de `weights_only` obsoletos.
 
 ---
 
 ## ⚙️ Requisitos
 
-- Python **3.9+**
-- **NVIDIA GPU** com CUDA 12.8+ (recomendado; CPU também funciona, mas é lento)
-- [uv](https://github.com/astral-sh/uv) — gerenciador de pacotes e ambientes
-- [ffmpeg](https://ffmpeg.org/) no PATH do sistema
-- Chave de API do [Groq](https://console.groq.com/) (para o agente de análise)
+- Python **3.9+** (Recomendado 3.10 ou 3.11)
+- **NVIDIA GPU** com CUDA 12.8+ (Altamente recomendado; CPU funciona, mas com velocidade reduzida)
+- [uv](https://github.com/astral-sh/uv) — gerenciador de pacotes e ambientes ultrarrápido
+- [ffmpeg](https://ffmpeg.org/) configurado nas variáveis de ambiente do sistema
+- Chave de API do [Groq](https://console.groq.com/) (Gratuita, para análise e chat com IA)
+- Token do [Hugging Face](https://huggingface.co/) (Apenas se optar pela Diarização de Falantes, para baixar o modelo do Pyannote)
 
-> **Testado em:** Windows 11, GTX 1650, CUDA 12.8, Python 3.11
+> **Ambiente Benchmark:** Windows 11, GTX 1650 (4GB), CUDA 12.8, Python 3.11, Whisper `small` (Local) + `llama-3.3-70b-versatile` (Groq)
 
 ---
 
-## 🚀 Instalação
+## 🚀 Instalação e Execução
 
-### 1. Clone o repositório
-
+### 1. Clonar e Acessar o Repositório
 ```bash
 git clone https://github.com/h-eXu/Azoth.git
 cd Azoth
 ```
 
-### 2. Crie o ambiente e instale as dependências
-
+### 2. Sincronizar Dependências com o `uv`
 ```bash
 uv sync
 ```
+> O `uv` criará o ambiente virtual `.venv` e instalará todas as dependências automaticamente, incluindo o PyTorch pré-compilado para a GPU com suporte CUDA.
 
-> O `uv sync` lê o `pyproject.toml` e instala tudo automaticamente, incluindo o PyTorch com suporte CUDA.
-
-### 3. Configure as variáveis de ambiente
-
+### 3. Variáveis de Ambiente
 Crie um arquivo `.env` na raiz do projeto:
-
 ```env
-GROQ_API_KEY=sua_chave_groq_aqui
+GROQ_API_KEY=gsk_sua_chave_aqui
+HF_TOKEN=hf_seu_token_aqui_opcional
 ```
 
-> A chave Groq é usada pelo **agente de análise** (LLM). A **transcrição** roda 100% local com Whisper.
+### 4. Instalar o FFMPEG
+* **Windows**: Baixe a build mais recente no [ffmpeg.org](https://ffmpeg.org/download.html) e adicione a pasta `bin` ao PATH do sistema.
+* **macOS**: `brew install ffmpeg`
 
-### 4. Instale o ffmpeg
-
-**Windows:**
-Baixe em [ffmpeg.org/download.html](https://ffmpeg.org/download.html) e adicione ao PATH do sistema.
-
-**macOS:**
-```bash
-brew install ffmpeg
-```
-
-### 5. (Opcional) Configurar captura de áudio do sistema
-
-Para gravar reuniões e vídeos que tocam no PC:
-
-**Windows:** Instale [VB-Cable](https://vb-audio.com/Cable/) ou [VoiceMeeter](https://vb-audio.com/Voicemeeter/) e configure como dispositivo de gravação padrão.
-
-**macOS:** Instale [BlackHole](https://existential.audio/blackhole/) e configure um Multi-Output Device no Utilitário de Áudio MIDI.
-
----
-
-## ▶️ Como rodar
-
+### 5. Iniciar a Aplicação
 ```bash
 uv run python -m azoth.main
 ```
 
-A janela da aplicação abre imediatamente. Escolha a fonte de áudio, inicie a transcrição e, ao terminar, acesse a análise com IA direto na interface.
-
 ---
 
-## 🗂️ Estrutura do projeto
+## 🗂️ Estrutura de Diretórios
 
 ```
 Azoth/
 ├── azoth/
-│   ├── core/          # Lógica de transcrição, agente IA, banco de dados
-│   ├── gui/           # Interface CustomTkinter
+│   ├── core/          # Inteligência: compatibilidade, áudio, Whisper, banco de dados, diarização e chunking
+│   ├── gui/           # Apresentação: CustomTkinter (Home, Histórico, Transcrição, Chat)
 │   └── main.py        # Ponto de entrada
-├── pyproject.toml     # Dependências e configuração do projeto
-├── .env               # Chaves de API (não commitado)
-└── transcricoes.json  # Histórico local (não commitado)
+├── pyproject.toml     # Configurações do ecossistema de dependências
+├── .env               # Variáveis sensíveis e segredos (ignorado no git)
+└── transcricoes.json  # Histórico persistido localmente (ignorado no git)
 ```
 
 ---
 
-## 🧠 Stack técnica
-
-| Componente | Tecnologia |
-|---|---|
-| Transcrição | [OpenAI Whisper](https://github.com/openai/whisper) (local, GPU) |
-| Aceleração GPU | PyTorch + CUDA 12.8 |
-| Agente de análise | [Agno](https://github.com/agno-agi/agno) + Groq (LLaMA) |
-| Interface gráfica | [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) |
-| Diarização | [pyannote-audio](https://github.com/pyannote/pyannote-audio) |
-| Download YouTube | [pytubefix](https://github.com/JuanBindez/pytubefix) |
-| Gerenciador de pacotes | [uv](https://github.com/astral-sh/uv) |
-| Banco de dados local | [TinyDB](https://github.com/msiemens/tinydb) |
-
----
-
-## 📝 Observações
-
-- O modelo Whisper roda **inteiramente local** — nenhum áudio é enviado para servidores externos
-- O histórico de transcrições fica em `transcricoes.json` na raiz — mantenha no `.gitignore`
-- Para melhor desempenho, use GPU NVIDIA com pelo menos 4GB de VRAM
-- O agente de análise mantém contexto da conversa durante toda a sessão
-
----
-
-*Construído com curiosidade e intenção.*
+*Construído com obsessão técnica e carinho.*
